@@ -1,6 +1,28 @@
 angular
   .module('anguweathar', ['ngRoute'])
   .config(($routeProvider) => {
+    console.log('Config executing')
+
+   firebase.initializeApp({
+    apiKey: "AIzaSyCflBsrxMHZxlDL0zsQwS5bfyks0L1-Z8A",
+    authDomain: "anguweathar.firebaseapp.com",
+    databaseURL: "https://anguweathar.firebaseio.com",
+    storageBucket: "anguweathar.appspot.com",
+    messagingSenderId: "865465243971"
+    })
+
+const checkForAuth = {
+      checkForAuth ($location) {
+        // http://stackoverflow.com/questions/37370224/firebase-stop-listening-onauthstatechanged
+        const authReady = firebase.auth().onAuthStateChanged(user => {
+          authReady()
+          if (!user) {
+            $location.url('/')
+          }
+        })
+      }
+    }
+
     $routeProvider
       .when('/', {
         controller: 'RootCtrl',
@@ -9,14 +31,23 @@ angular
       .when('/weather/:zipcode', {
         controller: 'WeatherCtrl',
         templateUrl: '/partials/weather.html',
+        resolve: checkForAuth
+        // resolve takes an object with a function inside
+        // https://docs.angularjs.org/api/ngRoute/provider/$routeProvider#when
+      })
+      .when('/login', {
+        controller: 'LoginCtrl',
+        templateUrl: '/partials/login.html',
       })
   })
   .controller('RootCtrl', function ($scope, $location) {
     console.log('I am a RootCtrl')
+    console.log('Current user', firebase.auth().currentUser)
     $scope.gotoWeather = () => $location.url(`/weather/${$scope.zip}`)
   })
   .controller('WeatherCtrl', function ($scope, $routeParams, weatherFactory) {
     console.log('I am a WeatherCtrl')
+    console.log('Current user', firebase.auth().currentUser)
 
     weatherFactory
       .getWeather($routeParams.zipcode)
@@ -40,6 +71,11 @@ angular
         $scope.long = weather.long
         $scope.elevation = weather.elevation
       })
+  })
+  .controller('LoginCtrl', function ($scope, $location, authFactory) {
+    $scope.login = () => authFactory
+      .login($scope.email, $scope.password)
+      .then(() => $location.url('/'))
   })
   .factory('weatherFactory', ($http) => {
     return {
@@ -68,5 +104,16 @@ angular
             })
           )
       },
+    }
+  })
+  .factory('authFactory', ($q) => {
+    return {
+      login (email, pass) {
+        // converts native ES6 promise to angular promise so no $scope.$apply needed
+        return $q.resolve(firebase.auth().signInWithEmailAndPassword(email, pass))
+      },
+      getUserId () {
+        return firebase.auth().currentUser.uid
+      }
     }
   })
